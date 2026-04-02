@@ -3,7 +3,7 @@ layout: home
 title: " "
 ---
 
-<img src="/증명사진.png" width="200">
+<img src="/증명사진.png" width="150" style="float: right; margin-left: 20px;">
 
 ## 👋 안녕하세요, 김종인입니다!
 
