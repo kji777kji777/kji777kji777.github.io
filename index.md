@@ -69,4 +69,4 @@ title: ""
 ## 📫 연락처
 
 * **GitHub**: [kji777kji777](https://github.com/kji777kji777)
-* **Email**: 이메일주소@gmail.com
+* **Email**: flowred@naver.com
