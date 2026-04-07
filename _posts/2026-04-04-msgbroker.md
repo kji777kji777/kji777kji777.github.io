@@ -3,8 +3,7 @@ layout: post
 title:  " Message Broker"
 date:   2026-04-04 10:00:00 +0900
 ---
-# Message Broker Comparison for Seismic Data Communication
-## Earthworm 기반 지진 데이터 통신 시스템 확장을 위한 메시지 브로커 비교
+# 🛰️ Earthworm 기반 지진 데이터 통신 시스템 확장을 위한 메시지 브로커 비교
 
 > **배경**: [Earthworm](http://www.earthwormcentral.org/)은 지진 데이터 수집·처리를 위한 표준 시스템으로,  
 > 내부적으로 공유 메모리 링 버퍼(Transport Ring)를 사용합니다.  
