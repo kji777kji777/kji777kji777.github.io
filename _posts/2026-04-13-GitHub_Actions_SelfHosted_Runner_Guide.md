@@ -1,3 +1,9 @@
+---
+layout: post
+title:  "GitHub Actions Self-hosted Runner 구축 가이드"
+date:   2026-04-13 08:00:00 +0900
+---
+
 # ⚙️ GitHub Actions Self-hosted Runner 구축 가이드
 
 > **CI/CD 실행 환경을 내 서버에 — GitHub 무료 제한 없는 빌드·테스트·배포 파이프라인**  
