@@ -1,3 +1,9 @@
+---
+layout: post
+title:  "Mattermost Self-Hosted 완전 설치 매뉴얼"
+date:   2026-04-11 01:00:00 +0900
+---
+
 # 🚀 소프트웨어 개발 관리 인프라 구축 가이드
 
 > **Oracle Linux 8.10 + Docker 기반 Mattermost Self-Hosted 완전 설치 매뉴얼**  
