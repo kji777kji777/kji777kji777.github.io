@@ -1,3 +1,9 @@
+---
+layout: post
+title:  "GitHub Projects 구축 및 운영 가이드"
+date:   2026-04-13 01:00:00 +0900
+---
+
 # 📋 GitHub Projects 구축 및 운영 가이드
 
 > **소스코드 · 이슈 · 일정을 하나로 — GitHub 네이티브 프로젝트 관리**  
