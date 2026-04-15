@@ -1410,11 +1410,6 @@ cd ~/gitea && sudo docker compose up -d
    ├── Pull Request · 코드 리뷰 운영
    ├── Gitea Actions CI/CD 파이프라인
    └── Mattermost Webhook 알림 연동
-
-다음 구축 단계 (참고):
-⬜ Mattermost Self-Hosted 구축   (팀 소통 채널)
-⬜ Wiki.js Self-Hosted 구축      (기술 문서 위키)
-⬜ 전체 통합 — Webhook 연동      (자동화 완성)
 ```
 
 ---
