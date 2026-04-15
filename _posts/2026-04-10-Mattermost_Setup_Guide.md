@@ -1,13 +1,13 @@
 ---
 layout: post
 title:  "Mattermost Self-Hosted 구축 매뉴얼"
-date:   2026-04-11 01:00:00 +0900
+date:   2026-04-10 01:00:00 +0900
 ---
 
 # 🚀 소프트웨어 개발 관리 인프라 구축 가이드
 
-> **Oracle Linux 8.10 + Docker 기반 Mattermost Self-Hosted 구축 매뉴얼**  
-> TA/개발자를 위한 무료 오픈소스 조합으로 엔터프라이즈급 개발 환경 구축
+> **Oracle Linux 8.10 + Docker 기반 Mattermost Self-Hosted 완전 설치 매뉴얼**  
+> TA/개발자를 위한 무료 오픈소스 조합으로 엔터프라이즈급 개발 환경 구축 (폐쇄망 완전 자립 구조)
 
 ---
 
@@ -29,7 +29,8 @@ date:   2026-04-11 01:00:00 +0900
 
 ## 1. 아키텍처 개요
 
-본 가이드는 소프트웨어 개발 프로젝트를 **완전 무료**로 운영하기 위한 Self-Hosted 핵심 인프라 구성의 일환입니다.
+본 가이드는 소프트웨어 개발 프로젝트를 **완전 무료 · 완전 폐쇄망**으로 운영하기 위한 Self-Hosted 핵심 인프라 구성의 일환입니다.  
+GitHub 없이 **Gitea**를 내 서버에서 직접 운영하며, Mattermost는 Gitea와 Webhook으로 연동하여 모든 이벤트 알림을 수신합니다.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -37,13 +38,24 @@ date:   2026-04-11 01:00:00 +0900
 ├──────────────┬──────────────────────────────────────────┤
 │ 영역          │ 도구                                      │
 ├──────────────┼──────────────────────────────────────────┤
-│ 소스 관리     │ GitHub (버전 관리 / PR 코드 리뷰)            │
+│ 소스 관리     │ Gitea (버전 관리 / PR 코드 리뷰) [Self-Hosted] │
 │ 팀원 소통     │ ✅ Mattermost [Self-Hosted] ← 본 문서      │
 │ 문서/공유     │ Wiki.js [Self-Hosted]                     │
-│ 일정/태스크   │ GitHub Projects (칸반 보드)                 │
-│ CI/CD        │ GitHub Actions + Self-hosted Runner        │
+│ 일정/태스크   │ Gitea Issues + Milestones [Self-Hosted]   │
+│ CI/CD        │ Gitea Actions + Act Runner [Self-Hosted]  │
 │ 상태 알림     │ Mattermost Incoming Webhook               │
 └──────────────┴──────────────────────────────────────────┘
+```
+
+### 전체 연동 흐름
+
+```
+개발자 코드 push (Gitea 내 서버)
+    → Gitea Actions 트리거
+    → Act Runner에서 빌드·테스트 수행
+    → 결과를 Mattermost #dev-alert 채널로 자동 알림
+    → 이슈 Close → 마일스톤 진척도 자동 업데이트
+    ※ 모든 데이터가 내 서버 안에서만 이동 (인터넷 불필요)
 ```
 
 ### 핵심 가치
@@ -51,9 +63,10 @@ date:   2026-04-11 01:00:00 +0900
 | 가치 | 설명 |
 |------|------|
 | 🔒 **데이터 주권** | 대화·파일을 사설 서버에 보관, 완전한 보안 및 영구 기록 |
-| 💰 **운영 비용 제로** | Slack, Notion 유료 없이 무제한에 가까운 기능 |
+| 💰 **운영 비용 제로** | Slack, Notion, GitHub 유료 없이 무제한에 가까운 기능 |
 | 🛠️ **TA 친화적** | Docker 기반으로 인프라 직접 제어, 기술 자산 내재화 |
-| 📈 **확장성** | Webhook · GitHub Actions 연동으로 자동화 무한 확장 |
+| 🌐 **폐쇄망 완전 자립** | 인터넷 없이 모든 서비스 운영 가능 |
+| 📈 **확장성** | Webhook · Gitea Actions 연동으로 자동화 무한 확장 |
 
 ---
 
@@ -66,8 +79,19 @@ OS       : Oracle Linux 8.10 (RHEL 계열)
 아키텍처  : x86_64
 RAM      : 최소 2GB (권장 4GB 이상)
 Disk     : 최소 20GB 여유 공간
-네트워크  : 포트 8065 외부 접근 가능
+네트워크  : 포트 8065 외부 접근 가능 (폐쇄망 내부망 허용)
 ```
+
+### 전체 서비스 포트 구성 (참고)
+
+| 서비스 | 포트 | 비고 |
+|--------|------|------|
+| **Mattermost** | `8065` | 본 문서 대상 |
+| Wiki.js | `3000` | Step 2에서 구축 |
+| Gitea 웹 UI | `3001` | Step 3에서 구축 |
+| Gitea SSH | `2222` | Step 3에서 구축 |
+
+> ⚠️ Gitea 웹 포트를 `3001`로 설정하는 이유: Wiki.js가 `3000`을 이미 사용하기 때문입니다.
 
 ### 필요 패키지 목록
 
@@ -75,7 +99,7 @@ Disk     : 최소 20GB 여유 공간
 |--------|------|
 | `docker-ce` | 컨테이너 런타임 엔진 |
 | `docker-compose-plugin` | 멀티 컨테이너 오케스트레이션 |
-| `curl` | 연결 테스트 및 다운로드 |
+| `curl` | 연결 테스트 및 Webhook 호출 |
 
 ---
 
@@ -94,6 +118,8 @@ sudo dnf install -y dnf-utils
 sudo dnf config-manager --add-repo \
   https://download.docker.com/linux/rhel/docker-ce.repo
 ```
+
+> ⚠️ **폐쇄망 환경**: 인터넷이 가능한 별도 PC에서 Docker RPM 패키지를 다운로드한 후 서버로 복사하여 오프라인으로 설치합니다.
 
 ### 3-3. Docker Engine 설치
 
@@ -321,8 +347,8 @@ sudo docker compose logs mattermost-mattermost-1 2>&1 | grep -i "config"
 # 로컬에서 서비스 응답 확인
 curl -v telnet://localhost:8065
 
-# 서버 IP로 외부 접근 확인 (예: 192.168.93.138)
-curl -v telnet://192.168.93.138:8065
+# 서버 IP로 외부 접근 확인
+curl -v telnet://192.168.xx.xxx:8065
 ```
 
 ### 7-6. 웹 브라우저 접속
@@ -376,8 +402,20 @@ URL:  http://<서버_IP>:8065/admin_console/site_config/file_sharing_downloads
 
 ```
 System Console → Environment → Web Server → Site URL
-값: http://192.168.93.138:8065
+값: http://<서버_IP>:8065
 ```
+
+### 8-5. Gitea 연동을 위한 Incoming Webhook 사전 활성화
+
+Gitea Actions 및 Gitea Webhook과 연동하려면 Incoming Webhook 기능을 활성화해야 합니다.
+
+```
+System Console → Integrations → Integration Management
+→ Enable Incoming Webhooks : True
+→ [Save]
+```
+
+> 이 설정을 완료해야 Step 6(전체 통합) 단계에서 Gitea Webhook 연동이 가능합니다.
 
 ---
 
@@ -390,18 +428,18 @@ System Console → Environment → Web Server → Site URL
 채널 생성: 왼쪽 사이드바 → "채널 추가" → 채널명 입력
 ```
 
-#### 추천 채널 구성 예시
+#### 추천 채널 구성 (Gitea 연동 기준)
 
 | 채널명 | 목적 |
 |--------|------|
 | `#general` | 팀 전체 공지 및 일반 소통 |
-| `#dev-alert` | GitHub Actions CI/CD 알림 수신 |
-| `#code-review` | PR 리뷰 요청 및 피드백 |
+| `#dev-alert` | Gitea Actions CI/CD 빌드 알림 수신 |
+| `#code-review` | Gitea PR 리뷰 요청 및 피드백 |
 | `#incident` | 장애 대응 및 이슈 공유 |
 
-### 9-2. Incoming Webhook 설정 (GitHub Actions 연동)
+### 9-2. Incoming Webhook 설정 (Gitea 연동)
 
-> CI/CD 빌드 결과를 Mattermost 채널로 자동 수신하는 설정
+> Gitea의 push, PR, 이슈 이벤트 및 CI/CD 빌드 결과를 Mattermost 채널로 자동 수신하는 설정
 
 #### 웹훅 생성
 
@@ -412,20 +450,71 @@ System Console → Environment → Web Server → Site URL
 
 ```
 생성된 URL 예시:
-http://192.168.93.138:8065/hooks/xxxxxxxxxxxxxxxxxxxxxxxx
+http://<서버_IP>:8065/hooks/xxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-#### GitHub Actions에서 Webhook 호출 예시
+#### Gitea Actions에서 Webhook 호출 예시
+
+Gitea Actions는 GitHub Actions와 워크플로우 파일 경로 및 컨텍스트 변수가 다릅니다.
 
 ```yaml
-# .github/workflows/notify.yml
-- name: Notify Mattermost
-  run: |
-    curl -i -X POST \
-      -H 'Content-Type: application/json' \
-      -d '{"text": "✅ **빌드 성공**: `${{ github.repository }}` - `${{ github.ref_name }}`"}' \
-      ${{ secrets.MATTERMOST_WEBHOOK_URL }}
+# .gitea/workflows/notify.yml        ← GitHub: .github/workflows/
+name: Notify Mattermost
+
+on:
+  push:
+    branches: [main, develop]
+
+jobs:
+  notify:
+    runs-on: self-hosted
+    steps:
+      - name: Notify Success
+        if: success()
+        run: |
+          curl -i -X POST \
+            -H 'Content-Type: application/json' \
+            -d "{\"text\": \"✅ **빌드 성공**: \`${{ gitea.repository }}\` - \`${{ gitea.ref_name }}\`\"}" \
+            ${{ secrets.MATTERMOST_WEBHOOK_URL }}
+
+      - name: Notify Failure
+        if: failure()
+        run: |
+          curl -i -X POST \
+            -H 'Content-Type: application/json' \
+            -d "{\"text\": \"❌ **빌드 실패**: \`${{ gitea.repository }}\`\n[로그 확인](${{ gitea.server_url }}/${{ gitea.repository }}/actions/runs/${{ gitea.run_id }})\"}" \
+            ${{ secrets.MATTERMOST_WEBHOOK_URL }}
 ```
+
+> **GitHub Actions와의 핵심 차이점:**
+> - 워크플로우 파일 경로: `.github/workflows/` → `.gitea/workflows/`
+> - 컨텍스트 변수: `${{ github.xxx }}` → `${{ gitea.xxx }}`
+> - YAML 문법 자체는 100% 동일
+
+#### Gitea Secrets 등록 (Webhook URL 보관)
+
+```
+Gitea → 저장소 → Settings → Actions → Secrets → [Add Secret]
+Name  : MATTERMOST_WEBHOOK_URL
+Value : http://<서버_IP>:8065/hooks/xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+#### Gitea 저장소 Webhook 설정 (이슈·PR 이벤트 알림)
+
+Gitea Actions 외에도 저장소 Webhook을 직접 등록하면 이슈·PR 생성 등의 이벤트를 Mattermost로 즉시 전송할 수 있습니다.
+
+```
+Gitea → 저장소 → Settings → Webhooks → [Add Webhook] → Gitea 선택
+Target URL  : http://<서버_IP>:8065/hooks/xxxxxxxxxxxxxxxxxxxxxxxx
+Content Type: application/json
+Trigger     : ✅ Push  ✅ Pull Request  ✅ Issues  ✅ Issue Comment
+[Add Webhook]
+```
+
+> ⚠️ Gitea가 Mattermost로 Webhook을 보내려면, Gitea 관리자 콘솔에서 Mattermost 서버 IP를 허용 주소로 등록해야 합니다.
+> ```
+> Gitea Site Administration → Settings → Webhook Settings → Allowed Hosts : <서버_IP>
+> ```
 
 ### 9-3. 메시지 서식 (Markdown 지원)
 
@@ -479,6 +568,12 @@ sudo docker stats                  # CPU/메모리 사용량 실시간
 sudo netstat -tulpn | grep 8065    # 포트 리스닝 확인
 sudo netstat -natp | grep 5432     # DB 포트 확인
 curl -v telnet://localhost:8065    # 서비스 응답 확인
+
+# ─── Webhook 연결 테스트 (Gitea → Mattermost) ─────────────
+curl -s -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"text": "🔔 Gitea 연동 테스트"}' \
+  http://<서버_IP>:8065/hooks/xxxxxxxxxxxxxxxxxxxxxxxx
 
 # ─── 유지보수 ─────────────────────────────────────────────
 sudo docker compose pull           # 이미지 최신 버전으로 업데이트
@@ -572,6 +667,57 @@ sudo docker compose up -d
 
 ---
 
+### ❌ Gitea Webhook 수신이 되지 않을 때
+
+```bash
+# 1. Incoming Webhook 활성화 여부 확인
+# System Console → Integrations → Integration Management
+# → Enable Incoming Webhooks : True 확인
+
+# 2. Webhook URL 유효성 직접 테스트
+curl -s -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"text": "연결 테스트"}' \
+  http://<서버_IP>:8065/hooks/xxxxxxxxxxxxxxxxxxxxxxxx
+
+# 3. Gitea 측 Webhook 허용 주소 설정 확인
+# Gitea Site Administration → Settings → Webhook Settings
+# → Allowed Hosts에 Mattermost 서버 IP 등록 확인
+
+# 4. Gitea Webhook 최근 전송 기록 확인
+# Gitea → 저장소 → Settings → Webhooks → [Recent Deliveries]
+# → HTTP 응답 코드 및 오류 메시지 확인
+
+# 5. 포트 통신 확인 (Gitea → Mattermost)
+sudo netstat -tulpn | grep 8065
+sudo firewall-cmd --list-ports | grep 8065
+```
+
+---
+
+### ❌ Gitea Actions 빌드 알림이 오지 않을 때
+
+```bash
+# 1. Gitea Secrets 등록 확인
+# Gitea → 저장소 → Settings → Actions → Secrets
+# → MATTERMOST_WEBHOOK_URL 값이 올바른지 확인
+
+# 2. 워크플로우 파일 경로 확인 (GitHub과 다름!)
+# → .gitea/workflows/*.yml  (GitHub: .github/workflows/)
+ls -la .gitea/workflows/
+
+# 3. 컨텍스트 변수 확인 (github → gitea)
+# ${{ github.xxx }} 가 아닌 ${{ gitea.xxx }} 를 사용하는지 확인
+grep -r "github\." .gitea/workflows/
+# 위 명령에서 결과가 나오면 gitea. 로 수정 필요
+
+# 4. Act Runner 상태 확인
+sudo systemctl status act-runner
+journalctl -u act-runner -n 50
+```
+
+---
+
 ## 📚 참고 자료
 
 | 자료 | URL |
@@ -579,27 +725,32 @@ sudo docker compose up -d
 | Mattermost 공식 문서 | https://docs.mattermost.com |
 | Mattermost Docker 설치 | https://docs.mattermost.com/install/install-docker.html |
 | Docker 공식 문서 | https://docs.docker.com |
-| GitHub Actions 공식 문서 | https://docs.github.com/en/actions |
+| Gitea 공식 문서 | https://docs.gitea.com |
+| Gitea Actions 문서 | https://docs.gitea.com/usage/actions/overview |
 
 ---
 
 ## 🗺️ 다음 단계
 
-본 가이드 완료 후 아래 구성 요소를 추가하여 완전한 개발 관리 인프라를 구축하세요.
+본 가이드 완료 후 아래 구성 요소를 순서대로 추가하여 완전한 폐쇄망 개발 관리 인프라를 구축하세요.
 
 ```
 ✅ Step 1: Mattermost Self-Hosted 설치  ← 현재 문서
 ⬜ Step 2: Wiki.js Self-Hosted 설치 (기술 문서 위키)
-⬜ Step 3: GitHub Actions Self-hosted Runner 등록
-⬜ Step 4: GitHub Actions ↔ Mattermost Webhook 연동
-⬜ Step 5: GitHub Projects 칸반 보드 구성
+⬜ Step 3: Gitea Self-Hosted 설치 (소스코드 저장소 · GitHub 완전 대체)
+⬜ Step 4: Gitea Issues · 마일스톤 구축 (태스크·스프린트 관리)
+⬜ Step 5: Act Runner 설치 (Gitea Actions CI/CD 실행 환경)
+⬜ Step 6: 전체 통합 — Gitea Webhook ↔ Mattermost 연동 완성
 ```
 
 ---
 
 <div align="center">
 
-**본 문서는 소프트웨어 개발 프로젝트의 무료 Self-Hosted 인프라 구축을 목적으로 작성되었습니다.**  
-`Oracle Linux 8.10` · `Docker` · `Mattermost Team Edition` · `PostgreSQL 15`
+**본 문서는 소프트웨어 개발 프로젝트의 완전 무료 Self-Hosted 인프라 구축을 목적으로 작성되었습니다.**  
+`Oracle Linux 8.10` · `Docker` · `Mattermost Team Edition` · `PostgreSQL 15` · `Gitea` · `Gitea Actions`
+
+*작성일: 2026-04-15*  
+*작성자: Kim Jong-in (Technical Architect)*
 
 </div>
