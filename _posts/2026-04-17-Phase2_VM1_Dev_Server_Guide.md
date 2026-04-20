@@ -54,11 +54,11 @@ VM 1 (vm-dev, 172.28.136.160)
 │               (웹 브라우저에서 문서를 작성·편집하는 인터페이스)
 │
 └─── Gitea 저장소: wiki-storage
-      └── ko/
-           ├── home.md              ← Wiki.js 메인 페이지
-           └── dev/
-                └── golang/
-                     └── architecture.md  ← 폴더 계층 문서
+      └──
+      ├── home.md              ← Wiki.js 메인 페이지
+      └── dev/
+      └── golang/
+            └── architecture.md  ← 폴더 계층 문서
 ```
 
 ### 작동 원리 (한 줄 요약)
@@ -669,8 +669,8 @@ Wiki.js에서 경로에 슬래시(`/`)를 넣으면 Gitea에 자동으로 폴더
 ```
 Wiki.js 경로 입력:   dev/golang/architecture
                       ↓ 자동 변환
-Gitea 폴더 구조:    ko/dev/golang/architecture.md
-                    (한국어 설정 시 ko/ 폴더가 자동 추가됨)
+Gitea 폴더 구조:     dev/golang/architecture.md
+                  
 ```
 
 ### 10-1. 새 문서 추가
