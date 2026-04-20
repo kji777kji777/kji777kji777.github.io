@@ -11,7 +11,7 @@ date:   2026-04-17 01:00:00 +0900
 
 | 항목 | 내용 |
 |------|------|
-| **버전** | v1.1 (2026-04-20 업데이트) |
+| **버전** | v1.1 (2026-04-16 업데이트) |
 | **대상 VM** | VM 100 — `vm-dev` (<VM1_IP>) |
 | **사전 조건** | Phase 1 완료 — Ubuntu 22.04 + k3s 설치 및 `dev-tools` 네임스페이스 생성 |
 | **예상 소요 시간** | 2 ~ 4 시간 |
@@ -1073,5 +1073,3 @@ kubectl get svc -n dev-tools
 
 *작성일: 2026-04-20 | 버전: v1.1*  
 *작성자: Kim Jong-in (Technical Architect)*  
-*기반 자료: Full_IT_Infrastructure_Roadmap_v3.md · 서버 명령어 History · SOP · 브라우저 캡처 화면*  
-*v1.1 업데이트: infra-lab 조직 개념 추가 · ko/ 디렉토리 미생성 동작 반영*
